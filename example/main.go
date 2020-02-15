@@ -2,11 +2,13 @@ package main
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/zjmnssy/etcd"
 	"github.com/zjmnssy/serviceRD/discover"
 	"github.com/zjmnssy/serviceRD/register"
+	"github.com/zjmnssy/serviceRD/service"
 	"github.com/zjmnssy/system"
 	"github.com/zjmnssy/zlog"
 )
@@ -30,6 +32,28 @@ func (s *HTTPService) GetServiceRegisterInfo() map[string]string {
 	kvs[fmt.Sprintf("/services/%s/%s/put/addr", s.Type, s.ID)] = s.Addr
 
 	return kvs
+}
+
+// PauseKey 解析从etcd获取到的key
+func PauseKey(key string) (string, string, string, error) {
+	sl := strings.Split(key, "/")
+	var serviceType string
+	var serviceID string
+	var serviceAttr string
+
+	if len(sl) == 5 {
+		serviceType = sl[2]
+		serviceID = sl[3]
+		serviceAttr = sl[4]
+	} else if len(sl) == 6 {
+		serviceType = sl[2]
+		serviceID = sl[3]
+		serviceAttr = sl[5]
+	} else {
+		return "", "", "", fmt.Errorf("key is invalid")
+	}
+
+	return serviceType, serviceID, serviceAttr, nil
 }
 
 /********************************************　注册示例　************************************************/
@@ -60,7 +84,7 @@ func registerImpl() {
 		for {
 			zlog.Prints(zlog.Info, "example", "is health = %v", i.IsHealth())
 
-			time.Sleep(time.Duration(3) * time.Second)
+			time.Sleep(time.Duration(1) * time.Second)
 		}
 	}(impl)
 
@@ -77,19 +101,23 @@ func registerImpl() {
 	zlog.Prints(zlog.Notice, "example", "register end")
 
 	di := discoverImpl()
-	di.All.GetOneRandom("http")
+	di.All.Select("http", service.ServiceSelectMethodRandom)
 
+	di.All.Show()
 	time.Sleep(time.Duration(10) * time.Second)
-	di.All.GetOneRandom("http")
+	di.All.Select("http", service.ServiceSelectMethodRandom)
 
 	impl.Stop()
 
+	di.All.Show()
 	time.Sleep(time.Duration(10) * time.Second)
-	di.All.GetOneRandom("http")
+	di.All.Select("http", service.ServiceSelectMethodRandom)
 
 	err = impl.Register()
 
-	di.All.GetOneRandom("http")
+	di.All.Show()
+	di.All.Select("http", service.ServiceSelectMethodRandom)
+
 }
 
 /******************************************** 服务发现 ******************************************************/
@@ -109,7 +137,7 @@ func discoverImpl() *discover.Discover {
 	list := make([]string, 0)
 	list = append(list, "/services")
 
-	impl, err := discover.New(c, list)
+	impl, err := discover.New(c, list, PauseKey)
 	if err != nil {
 		zlog.Prints(zlog.Warn, "example", "create new discover error : %s", err)
 		return nil

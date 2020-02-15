@@ -2,8 +2,6 @@ package discover
 
 import (
 	"context"
-	"fmt"
-	"strings"
 
 	"github.com/zjmnssy/etcd"
 	"github.com/zjmnssy/serviceRD/service"
@@ -11,56 +9,42 @@ import (
 	"go.etcd.io/etcd/clientv3"
 )
 
-func pauseInfoFromKey(key string) (string, string, string, error) {
-	sl := strings.Split(key, "/")
-	var serviceType string
-	var serviceID string
-	var serviceAttr string
-
-	if len(sl) == 5 {
-		serviceType = sl[2]
-		serviceID = sl[3]
-		serviceAttr = sl[4]
-	} else if len(sl) == 6 {
-		serviceType = sl[2]
-		serviceID = sl[3]
-		serviceAttr = sl[5]
-	} else {
-		return "", "", "", fmt.Errorf("key is invalid")
-	}
-
-	return serviceType, serviceID, serviceAttr, nil
-}
+type pauseEtcdKey func(key string) (string, string, string, error)
 
 // Discover 服务发现
 type Discover struct {
 	All *service.All
 
-	client      *clientv3.Client
-	list        []string
-	isGetFinish chan struct{}
+	pauseEtcdKey pauseEtcdKey
+	client       *clientv3.Client
+	list         []string
+	isGetFinish  chan struct{}
 }
 
 // New 创建发现实例
-func New(c etcd.Config, l []string) (*Discover, error) {
+func New(c etcd.Config, l []string, pause pauseEtcdKey) (*Discover, error) {
 	client, err := etcd.Client(c)
 	if err != nil {
 		return nil, err
 	}
 
-	d := Discover{client: client, All: service.NewAll(), list: l, isGetFinish: make(chan struct{})}
+	d := Discover{client: client,
+		All:          service.NewAll(),
+		pauseEtcdKey: pause,
+		list:         l,
+		isGetFinish:  make(chan struct{})}
 
 	return &d, nil
 }
 
 // Run 服务发现主流程
 func (d *Discover) Run() {
-	go d.license()
+	go d.listen()
 
-	d.initDiscover()
+	d.initialize()
 }
 
-func (d *Discover) initDiscover() {
+func (d *Discover) initialize() {
 	for _, v := range d.list {
 		_, data, err := etcd.GetPrefix(context.Background(), d.client, v)
 		if err != nil {
@@ -69,7 +53,7 @@ func (d *Discover) initDiscover() {
 		}
 
 		for k, v := range data {
-			serviceType, serviceID, serviceAttr, err := pauseInfoFromKey(k)
+			serviceType, serviceID, serviceAttr, err := d.pauseEtcdKey(k)
 			if err == nil {
 				d.All.AddOne(serviceType, serviceID, serviceAttr, v)
 			}
@@ -79,7 +63,7 @@ func (d *Discover) initDiscover() {
 	d.isGetFinish <- struct{}{}
 }
 
-func (d *Discover) license() {
+func (d *Discover) listen() {
 	var data = make(chan etcd.WatchData, 100000)
 
 	for _, v := range d.list {
@@ -92,22 +76,22 @@ func (d *Discover) license() {
 		dc := <-data
 
 		if dc.Operate == etcd.MethodPut {
-			serviceType, serviceID, serviceAttr, err := pauseInfoFromKey(dc.Key)
+			serviceType, serviceID, serviceAttr, err := d.pauseEtcdKey(dc.Key)
 			if err == nil {
 				d.All.AddOne(serviceType, serviceID, serviceAttr, dc.Value)
 			}
 		} else if dc.Operate == etcd.MethodCreate {
-			serviceType, serviceID, serviceAttr, err := pauseInfoFromKey(dc.Key)
+			serviceType, serviceID, serviceAttr, err := d.pauseEtcdKey(dc.Key)
 			if err == nil {
 				d.All.AddOne(serviceType, serviceID, serviceAttr, dc.Value)
 			}
 		} else if dc.Operate == etcd.MethodModify {
-			serviceType, serviceID, serviceAttr, err := pauseInfoFromKey(dc.Key)
+			serviceType, serviceID, serviceAttr, err := d.pauseEtcdKey(dc.Key)
 			if err == nil {
 				d.All.AddOne(serviceType, serviceID, serviceAttr, dc.Value)
 			}
 		} else if dc.Operate == etcd.MethodDelete {
-			serviceType, serviceID, _, err := pauseInfoFromKey(dc.Key)
+			serviceType, serviceID, _, err := d.pauseEtcdKey(dc.Key)
 			if err == nil {
 				d.All.DeleteOne(serviceType, serviceID)
 			}

@@ -7,6 +7,11 @@ import (
 	"github.com/zjmnssy/codex"
 )
 
+// 服务获取方法
+const (
+	ServiceSelectMethodRandom = "random"
+)
+
 // Service 服务
 type Service interface {
 	GetServiceRegisterInfo() map[string]string // 用于服务描述自己的信息
@@ -86,8 +91,14 @@ func (as *All) DeleteOne(ty string, ID string) {
 	delete(sl.idUnit, ID)
 }
 
-// GetOneRandom 获取一个服务实例
-func (as *All) GetOneRandom(ty string) (map[string]string, error) {
+// Select 选择一个服务
+func (as *All) Select(ty string, method string) (map[string]string, error) {
+
+	return as.randomGet(ty)
+}
+
+// randomGet 随机获取一个服务实例
+func (as *All) randomGet(ty string) (map[string]string, error) {
 	as.lock.Lock()
 	defer as.lock.Unlock()
 
