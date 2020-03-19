@@ -27,9 +27,8 @@ type HTTPService struct {
 func (s *HTTPService) GetServiceRegisterInfo() map[string]string {
 	var kvs = make(map[string]string)
 
-	kvs[fmt.Sprintf("/services/%s/%s/put/ID", s.Type, s.ID)] = s.ID
-	kvs[fmt.Sprintf("/services/%s/%s/put/version", s.Type, s.ID)] = s.Version
-	kvs[fmt.Sprintf("/services/%s/%s/put/addr", s.Type, s.ID)] = s.Addr
+	kvs[fmt.Sprintf("/services/push/%s/%s/version", s.Type, s.ID)] = s.Version
+	kvs[fmt.Sprintf("/services/push/%s/%s/address", s.Type, s.ID)] = s.Addr
 
 	return kvs
 }
@@ -41,13 +40,9 @@ func PauseKey(key string) (string, string, string, error) {
 	var serviceID string
 	var serviceAttr string
 
-	if len(sl) == 5 {
-		serviceType = sl[2]
-		serviceID = sl[3]
-		serviceAttr = sl[4]
-	} else if len(sl) == 6 {
-		serviceType = sl[2]
-		serviceID = sl[3]
+	if len(sl) == 6 {
+		serviceType = sl[3]
+		serviceID = sl[4]
 		serviceAttr = sl[5]
 	} else {
 		return "", "", "", fmt.Errorf("key is invalid")
@@ -60,17 +55,17 @@ func PauseKey(key string) (string, string, string, error) {
 
 func registerImpl() {
 	var c etcd.Config
-	c.NodeList = append(c.NodeList, "192.168.31.218:2379")
+	c.NodeList = append(c.NodeList, "47.56.89.32:2379")
 	c.UseTLS = true
-	c.CaFile = "/home/nssy/Work/0-Software/cfssl/root.crt"
-	c.CertFile = "/home/nssy/Work/0-Software/cfssl/test3-config-server/etcd.pem"
-	c.CertKeyFile = "/home/nssy/Work/0-Software/cfssl/test3-config-server/etcd-key.pem"
-	c.ServerName = "config-server"
+	c.CaFile = "/home/nssy/.ssh/ca/etcd1/ca.pem"
+	c.CertFile = "/home/nssy/.ssh/ca/etcd1/etcd1.pem"
+	c.CertKeyFile = "/home/nssy/.ssh/ca/etcd1/etcd1-key.pem"
+	c.ServerName = "www.3344.fun"
 	c.DialTimeout = 1500
 	c.DialKeepAlivePeriod = 5000
 	c.DialKeepAliveTimeout = 2000
 
-	s := HTTPService{ID: "test1", Type: "http", Version: "10.000.000.001", Addr: "192.168.31.218:8080"}
+	s := HTTPService{ID: "test1", Type: "http", Version: "20190828005", Addr: "192.168.31.218:8080"}
 
 	impl, err := register.New(c, &s, 10)
 	if err != nil {
@@ -89,32 +84,30 @@ func registerImpl() {
 	}(impl)
 
 	time.Sleep(time.Duration(10) * time.Second)
-
-	impl.Stop()
-
-	time.Sleep(time.Duration(10) * time.Second)
-
-	err = impl.Register()
-
-	time.Sleep(time.Duration(10) * time.Second)
-
 	zlog.Prints(zlog.Notice, "example", "register end")
 
-	di := discoverImpl()
-	di.All.Select("http", service.ServiceSelectMethodRandom)
-
-	di.All.Show()
+	impl.Stop()
+	zlog.Prints(zlog.Notice, "example", "stop")
 	time.Sleep(time.Duration(10) * time.Second)
+
+	err = impl.Register()
+	zlog.Prints(zlog.Notice, "example", "register again")
+	time.Sleep(time.Duration(10) * time.Second)
+
+	di := discoverImpl()
+	di.All.Show()
 	di.All.Select("http", service.ServiceSelectMethodRandom)
+	time.Sleep(time.Duration(10) * time.Second)
 
 	impl.Stop()
-
-	di.All.Show()
+	zlog.Prints(zlog.Notice, "example", "stop again")
 	time.Sleep(time.Duration(10) * time.Second)
+	di.All.Show()
 	di.All.Select("http", service.ServiceSelectMethodRandom)
 
 	err = impl.Register()
-
+	zlog.Prints(zlog.Notice, "example", "register third")
+	time.Sleep(time.Duration(10) * time.Second)
 	di.All.Show()
 	di.All.Select("http", service.ServiceSelectMethodRandom)
 
@@ -124,12 +117,12 @@ func registerImpl() {
 
 func discoverImpl() *discover.Discover {
 	var c etcd.Config
-	c.NodeList = append(c.NodeList, "192.168.31.218:2379")
+	c.NodeList = append(c.NodeList, "47.56.89.32:2379")
 	c.UseTLS = true
-	c.CaFile = "/home/nssy/Work/0-Software/cfssl/root.crt"
-	c.CertFile = "/home/nssy/Work/0-Software/cfssl/test3-config-server/etcd.pem"
-	c.CertKeyFile = "/home/nssy/Work/0-Software/cfssl/test3-config-server/etcd-key.pem"
-	c.ServerName = "config-server"
+	c.CaFile = "/home/nssy/.ssh/ca/etcd1/ca.pem"
+	c.CertFile = "/home/nssy/.ssh/ca/etcd1/etcd1.pem"
+	c.CertKeyFile = "/home/nssy/.ssh/ca/etcd1/etcd1-key.pem"
+	c.ServerName = "www.3344.fun"
 	c.DialTimeout = 1500
 	c.DialKeepAlivePeriod = 5000
 	c.DialKeepAliveTimeout = 2000
