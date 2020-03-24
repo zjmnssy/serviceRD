@@ -15,16 +15,8 @@ a service register and discover, base on etcd
                                 /weight         10
         /push
                 /serviceType
-                        /serviceID1
-                                /address        192.168.1.128:8080
-                                /version        20190828001
-                                /weight         10
-                                /qps            1645285
-                        /serviceID2
-                                /address        192.168.1.129:8080
-                                /version        20190828008
-                                /weight         10
-                                /qps            1645285
+                        /serviceID1             {"address":"192.168.1.128:8080", "version":"20190828001", "weight":"10"}
+                        /serviceID2             {"address":"192.168.1.128:8080", "version":"20190828001", "weight":"10"}
 ```
 ## 说明
 - 1.版本组成为：年月日＋三位序号，方便比较计算  
