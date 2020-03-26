@@ -20,9 +20,9 @@ type Registrar struct {
 	client      *clientv3.Client
 	serviceDesc service.Desc
 	ttl         int64
+	stopCheck   bool
 	leaseID     clientv3.LeaseID
 	cancel      context.CancelFunc
-	stopCheck   bool
 }
 
 // NewRegistrar 创建注册实例
@@ -32,7 +32,12 @@ func NewRegistrar(c etcd.Config, desc service.Desc, ttl int64) (*Registrar, erro
 		return nil, err
 	}
 
-	r := Registrar{client: client, serviceDesc: desc, ttl: ttl, stopCheck: false}
+	r := Registrar{
+		client:      client,
+		serviceDesc: desc,
+		ttl:         ttl,
+		stopCheck:   false,
+	}
 
 	return &r, nil
 }

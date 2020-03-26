@@ -25,6 +25,7 @@ type Watcher struct {
 	alladdrs   []resolver.Address
 	initFinish chan struct{}
 	lock       sync.Mutex
+	stopCh     chan struct{}
 }
 
 // NewWatcher 创建服务监控器实例
@@ -43,6 +44,7 @@ func NewWatcher(client *clientv3.Client,
 		cancel:      cancel,
 		alladdrs:    make([]resolver.Address, 0, 0),
 		initFinish:  make(chan struct{}),
+		stopCh:      make(chan struct{}),
 	}
 
 	return w
@@ -81,51 +83,60 @@ func (w *Watcher) initialize() []resolver.Address {
 func (w *Watcher) watch() {
 	etcdData := make(chan etcd.WatchData, 10000)
 
-	go etcd.WatchPrefix(w.ctx, w.client, w.watchPrefix, etcdData)
+	go etcd.WatchPrefix(w.ctx, w.client, w.watchPrefix, etcdData, w.stopCh)
 
 	<-w.initFinish
 
-	for data := range etcdData {
-		switch data.Operate {
-		case etcd.MethodCreate:
+	for {
+		select {
+		case data := <-etcdData:
 			{
-				addr, _, err := w.extract(data.Key, data.Value)
-				if err == nil {
-					w.add(addr)
-				} else {
-					zlog.Prints(zlog.Warn, "watcher", "extract addr error = %s", err)
+				switch data.Operate {
+				case etcd.MethodCreate:
+					{
+						addr, _, err := w.extract(data.Key, data.Value)
+						if err == nil {
+							w.add(addr)
+						} else {
+							zlog.Prints(zlog.Warn, "watcher", "extract addr error = %s", err)
+						}
+					}
+				case etcd.MethodPut:
+					{
+						addr, _, err := w.extract(data.Key, data.Value)
+						if err == nil {
+							w.add(addr)
+						} else {
+							zlog.Prints(zlog.Warn, "watcher", "extract addr error = %s", err)
+						}
+					}
+				case etcd.MethodDelete:
+					{
+						_, serverID, err := w.extract(data.Key, data.Value)
+						if err == nil {
+							w.delete(serverID)
+						} else {
+							zlog.Prints(zlog.Warn, "watcher", "extract data.Key = %s , data.Value = %s, error = %s", data.Key, data.Value, err)
+						}
+					}
+				case etcd.MethodModify:
+					{
+						addr, serverID, err := w.extract(data.Key, data.Value)
+						if err == nil {
+							w.modify(serverID, addr)
+						} else {
+							zlog.Prints(zlog.Warn, "watcher", "extract addr error = %s", err)
+						}
+					}
+				default:
+					{
+						zlog.Prints(zlog.Warn, "watcher", "not suport method = %s", data.Operate)
+					}
 				}
 			}
-		case etcd.MethodPut:
+		case <-w.stopCh:
 			{
-				addr, _, err := w.extract(data.Key, data.Value)
-				if err == nil {
-					w.add(addr)
-				} else {
-					zlog.Prints(zlog.Warn, "watcher", "extract addr error = %s", err)
-				}
-			}
-		case etcd.MethodDelete:
-			{
-				_, serverID, err := w.extract(data.Key, data.Value)
-				if err == nil {
-					w.delete(serverID)
-				} else {
-					zlog.Prints(zlog.Warn, "watcher", "extract data.Key = %s , data.Value = %s, error = %s", data.Key, data.Value, err)
-				}
-			}
-		case etcd.MethodModify:
-			{
-				addr, serverID, err := w.extract(data.Key, data.Value)
-				if err == nil {
-					w.modify(serverID, addr)
-				} else {
-					zlog.Prints(zlog.Warn, "watcher", "extract addr error = %s", err)
-				}
-			}
-		default:
-			{
-				zlog.Prints(zlog.Warn, "watcher", "not suport method = %s", data.Operate)
+				return
 			}
 		}
 	}
@@ -210,6 +221,7 @@ func (w *Watcher) Run() {
 
 // Close 关闭监控器
 func (w *Watcher) Close() {
+	w.stopCh <- struct{}{}
 	w.cancel()
 	w.client.Close()
 }

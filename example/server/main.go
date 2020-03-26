@@ -9,14 +9,18 @@ import (
 
 	"github.com/zjmnssy/etcd"
 	"github.com/zjmnssy/serviceRD/example/proto"
+	"github.com/zjmnssy/serviceRD/health"
 	"github.com/zjmnssy/serviceRD/registrar"
+	"github.com/zjmnssy/serviceRD/service"
 	"github.com/zjmnssy/system"
 	"github.com/zjmnssy/zlog"
 	"google.golang.org/grpc"
 )
 
-// serviceInfo 服务描述
-type serviceInfo struct {
+/************************************************* service desc ***************************************************/
+
+// serviceDesc 服务描述
+type serviceDesc struct {
 	Addr       string `json:"address"`
 	Version    string `json:"version"`
 	Weight     string `json:"weight"`
@@ -25,7 +29,7 @@ type serviceInfo struct {
 }
 
 // GetServiceRegisterInfo 服务描述
-func (s *serviceInfo) GetServiceRegisterInfo() map[string]string {
+func (s *serviceDesc) GetServiceRegisterInfo() map[string]string {
 	var kvs = make(map[string]string)
 
 	bytes, err := json.Marshal(s)
@@ -38,11 +42,11 @@ func (s *serviceInfo) GetServiceRegisterInfo() map[string]string {
 	return kvs
 }
 
-/***********************************************************************************************************/
+/*************************************************** test server **************************************************/
 
 // RPCServer rpc服务
 type RPCServer struct {
-	info      serviceInfo
+	info      serviceDesc
 	registrar *registrar.Registrar
 	s         *grpc.Server
 }
@@ -77,7 +81,23 @@ func (s *RPCServer) Say(ctx context.Context, req *proto.SayReq) (*proto.SayResp,
 	return &proto.SayResp{Content: text}, nil
 }
 
-/***********************************************************************************************************/
+/******************************************************** start ***************************************************/
+
+func getGrpcServer(c etcd.Config, desc service.Desc, serviceName string, ttl int64) (*grpc.Server, *registrar.Registrar, error) {
+	impl, err := registrar.NewRegistrar(c, desc, ttl)
+	if err != nil {
+		zlog.Prints(zlog.Warn, "example", "create new register error = %s", err)
+		return nil, nil, err
+	}
+
+	s := grpc.NewServer()
+
+	manager := health.GetManager()
+	manager.Register(s, serviceName)
+
+	return s, impl, nil
+}
+
 func startGRPC() {
 	var c etcd.Config
 	c.NodeList = append(c.NodeList, "127.0.0.1:2379")
@@ -90,7 +110,7 @@ func startGRPC() {
 	c.DialKeepAlivePeriod = 5000
 	c.DialKeepAliveTimeout = 2000
 
-	serviceDesc := serviceInfo{
+	serviceDesc := serviceDesc{
 		Addr:       "0.0.0.0:10001",
 		Version:    "20190828001",
 		Weight:     "1",
@@ -98,47 +118,17 @@ func startGRPC() {
 		ServerType: "grpcTest",
 	}
 
-	impl, err := registrar.NewRegistrar(c, &serviceDesc, 5)
+	s, impl, err := getGrpcServer(c, &serviceDesc, "proto.Test", 5)
 	if err != nil {
-		zlog.Prints(zlog.Warn, "example", "create new register error : %s", err)
+		zlog.Prints(zlog.Warn, "example", "getGRPCServer error = %s", err)
 		return
 	}
 
-	s := grpc.NewServer()
 	server := &RPCServer{info: serviceDesc, registrar: impl, s: s}
 	go server.Run()
 }
 
-func start2HTTP() {
-	var c etcd.Config
-	c.NodeList = append(c.NodeList, "127.0.0.1:2379")
-	c.UseTLS = true
-	c.CaFile = "/home/nssy/Work/4-zjmnssy/serviceRD/example/server/ca.pem"
-	c.CertFile = "/home/nssy/Work/4-zjmnssy/serviceRD/example/server/etcd.pem"
-	c.CertKeyFile = "/home/nssy/Work/4-zjmnssy/serviceRD/example/server/etcd-key.pem"
-	c.ServerName = "etcd1"
-	c.DialTimeout = 1500
-	c.DialKeepAlivePeriod = 5000
-	c.DialKeepAliveTimeout = 2000
-
-	serviceDesc := serviceInfo{
-		Addr:       "0.0.0.0:10002",
-		Version:    "20190828001",
-		Weight:     "1",
-		ServerID:   "node2",
-		ServerType: "httpTest",
-	}
-
-	impl, err := registrar.NewRegistrar(c, &serviceDesc, 5)
-	if err != nil {
-		zlog.Prints(zlog.Warn, "example", "create new register error : %s", err)
-		return
-	}
-
-	s := grpc.NewServer()
-	server := &RPCServer{info: serviceDesc, registrar: impl, s: s}
-	go server.Run()
-}
+/**************************************************** main *************************************************/
 
 func quit() {
 
@@ -146,7 +136,6 @@ func quit() {
 
 func main() {
 	startGRPC()
-	start2HTTP()
 
 	system.SecurityExitProcess(quit)
 }

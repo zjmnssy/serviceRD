@@ -17,7 +17,7 @@ type etcdResolver struct {
 	cc       resolver.ClientConn
 }
 
-func (r *etcdResolver) Build(target resolver.Target, cc resolver.ClientConn, opts resolver.BuildOption) (resolver.Resolver, error) {
+func (r *etcdResolver) Build(target resolver.Target, cc resolver.ClientConn, opts resolver.BuildOptions) (resolver.Resolver, error) {
 	client, err := etcd.Client(r.conf)
 	if err != nil {
 		return nil, err
@@ -53,7 +53,7 @@ func (r *etcdResolver) start() {
 	}()
 }
 
-func (r *etcdResolver) ResolveNow(o resolver.ResolveNowOption) {
+func (r *etcdResolver) ResolveNow(o resolver.ResolveNowOptions) {
 }
 
 func (r *etcdResolver) Close() {

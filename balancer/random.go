@@ -63,7 +63,7 @@ type randomPicker struct {
 	mu       sync.Mutex
 }
 
-func (p *randomPicker) Pick(ctx context.Context, opts balancer.PickOptions) (balancer.SubConn, func(balancer.DoneInfo), error) {
+func (p *randomPicker) Pick(ctx context.Context, opt balancer.PickInfo) (balancer.SubConn, func(balancer.DoneInfo), error) {
 	p.mu.Lock()
 	sc := p.subConns[rand.Intn(len(p.subConns))]
 	p.mu.Unlock()

@@ -64,7 +64,7 @@ type roundRobinPicker struct {
 	next     int
 }
 
-func (p *roundRobinPicker) Pick(ctx context.Context, opts balancer.PickOptions) (balancer.SubConn, func(balancer.DoneInfo), error) {
+func (p *roundRobinPicker) Pick(ctx context.Context, opt balancer.PickInfo) (balancer.SubConn, func(balancer.DoneInfo), error) {
 	p.mu.Lock()
 	sc := p.subConns[p.next]
 	p.next = (p.next + 1) % len(p.subConns)
