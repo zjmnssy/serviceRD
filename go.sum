@@ -236,6 +236,8 @@ github.com/xordataexchange/crypt v0.0.3-0.20170626215501-b2862e3d0a77/go.mod h1:
 github.com/yuin/goldmark v1.1.25/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=
 github.com/zjmnssy/codex v1.0.0 h1:eQUoEfd27soOGpVGV5RzVS6/GE/vy9Ulo1OzTYrVifk=
 github.com/zjmnssy/codex v1.0.0/go.mod h1:C5n674fVs74BZztM5v3Gt17VycI7cxP4Jw+yk+gDvVs=
+github.com/zjmnssy/codex v1.0.1 h1:/hhOcWVhpkWAa7IWew36MNGLzTdlMximVJyL6ORZABE=
+github.com/zjmnssy/codex v1.0.1/go.mod h1:C5n674fVs74BZztM5v3Gt17VycI7cxP4Jw+yk+gDvVs=
 github.com/zjmnssy/etcd v1.0.0 h1:JiLvjXZU0LG3AZd96SbMg9sGy6hKZpQJHjJyWNxOg0U=
 github.com/zjmnssy/etcd v1.0.0/go.mod h1:ln9achjsusfUiDysp+5grNO6RubbWST/4KEtnQIOO9I=
 github.com/zjmnssy/etcd v1.0.1 h1:mMBOrY4rji5/iEebH4K9f8YbaONjaXz3gaf10VAL54I=

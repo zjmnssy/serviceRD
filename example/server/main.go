@@ -15,6 +15,7 @@ import (
 	"github.com/zjmnssy/system"
 	"github.com/zjmnssy/zlog"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/peer"
 )
 
 /************************************************* service desc ***************************************************/
@@ -74,7 +75,12 @@ func (s *RPCServer) Stop() {
 
 // Say 远程调用方法
 func (s *RPCServer) Say(ctx context.Context, req *proto.SayReq) (*proto.SayResp, error) {
-	text := "Hello " + req.Content + ", I am " + s.info.ServerID
+	addr, err := GetClientIP(ctx)
+	if err != nil {
+		zlog.Prints(zlog.Warn, "main", "GetClientIP error = %s", err)
+	}
+
+	text := "Hello " + addr + ", " + req.Content + ", I am " + s.info.ServerID
 
 	zlog.Prints(zlog.Info, "main", "response : %s", text)
 
@@ -96,6 +102,20 @@ func getGrpcServer(c etcd.Config, desc service.Desc, serviceName string, ttl int
 	manager.Register(s, serviceName)
 
 	return s, impl, nil
+}
+
+// GetClientIP 获取请求客户端的远程地址, 通过从metadata中获取远程地址信息
+func GetClientIP(ctx context.Context) (string, error) {
+	pr, ok := peer.FromContext(ctx)
+	if !ok {
+		return "", fmt.Errorf("[getClinetIP] invoke FromContext() failed")
+	}
+
+	if pr.Addr == net.Addr(nil) {
+		return "", fmt.Errorf("[getClientIP] peer.Addr is nil")
+	}
+
+	return pr.Addr.String(), nil
 }
 
 func startGRPC() {
